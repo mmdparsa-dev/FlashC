@@ -87,6 +87,6 @@ License is MIT
 
 ## 💙 Created by
 
-**MMDParsaDev**
+**mmdparsa**
 
 ⚡ FlashC — Fast. Clean. Modern.
