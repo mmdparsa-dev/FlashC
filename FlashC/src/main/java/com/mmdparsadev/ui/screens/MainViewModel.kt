@@ -48,9 +48,17 @@ class MainViewModel(private val repository: ConversionRepository) : ViewModel() 
         }
     }
 
+    init {
+        viewModelScope.launch {
+            if (repository.preferences.isCurrencySyncEnabled) {
+                com.mmdparsadev.engine.plugins.CurrencyConverterPlugin().syncRate(repository.preferences, force = false)
+            }
+        }
+    }
+
     fun syncRatesNow(context: Context, onResult: () -> Unit) {
         viewModelScope.launch {
-            com.mmdparsadev.engine.plugins.CurrencyConverterPlugin().syncRate(repository.preferences)
+            com.mmdparsadev.engine.plugins.CurrencyConverterPlugin().syncRate(repository.preferences, force = true)
             onResult()
         }
     }

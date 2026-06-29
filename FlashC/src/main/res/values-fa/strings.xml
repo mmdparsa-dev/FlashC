@@ -125,7 +125,6 @@
     <string name="disabled_click_to_enable">غیرفعال • برای فعال‌سازی کلیک کنید</string>
     <string name="last_updated_prefix">آخرین بروزرسانی: %s</string>
     <string name="never_updated">هرگز</string>
-    <string name="app_info_footer">مجموعه تبدیل FlashC نسخه v1.0.0\nمحافظت شده با معماری سندباکس اندروید</string>
     <string name="share_title">تبدیل فایل اشتراک‌گذاری شده</string>
     <string name="share_file_name_label">نام فایل</string>
     <string name="share_file_type_label">نوع فایل</string>

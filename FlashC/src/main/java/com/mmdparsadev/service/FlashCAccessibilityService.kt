@@ -18,7 +18,7 @@ class FlashCAccessibilityService : AccessibilityService() {
     private lateinit var prefs: AppPreferences
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
-    
+
     private val unitConverter = UnitConverterPlugin()
     private val currencyConverter = CurrencyConverterPlugin()
     private var overlayController: OverlayController? = null
@@ -36,7 +36,13 @@ class FlashCAccessibilityService : AccessibilityService() {
         super.onCreate()
         prefs = AppPreferences(applicationContext)
         overlayController = OverlayController(applicationContext)
-        
+
+        if (prefs.isCurrencySyncEnabled) {
+            serviceScope.launch {
+                runCatching { currencyConverter.syncRate(prefs, force = false) }
+            }
+        }
+
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.addPrimaryClipChangedListener {
             if (prefs.isClipboardParseEnabled) {
@@ -59,6 +65,9 @@ class FlashCAccessibilityService : AccessibilityService() {
         lastAnalysisTime = System.currentTimeMillis()
 
         serviceScope.launch {
+            if (prefs.isCurrencySyncEnabled) {
+                runCatching { currencyConverter.syncRate(prefs, force = false) }
+            }
             val rate = prefs.lastUsdRate
             val eurRate = prefs.lastEurRate
             val prefDisplay = prefs.preferredCurrencyDisplay
@@ -124,10 +133,10 @@ class FlashCAccessibilityService : AccessibilityService() {
             android.util.Log.d("FlashC", "Accessibility event received: $eventType")
             try {
                 val rootNode = rootInActiveWindow ?: return
-                
+
                 val nodeBounds = mutableListOf<Pair<String, android.graphics.Rect>>()
                 var nodeCount = 0
-                
+
                 fun collectTexts(n: android.view.accessibility.AccessibilityNodeInfo?) {
                     if (n == null) return
                     nodeCount++
@@ -141,39 +150,43 @@ class FlashCAccessibilityService : AccessibilityService() {
                         collectTexts(n.getChild(i))
                     }
                 }
-                
+
                 collectTexts(rootNode)
-                
+
                 val allTexts = nodeBounds.map { it.first }
                 android.util.Log.d("FlashC", "Processed $nodeCount nodes, found ${allTexts.size} texts")
                 if (allTexts.isNotEmpty()) {
                     android.util.Log.d("FlashC", "Extracted text samples: ${allTexts.take(3).joinToString(", ")}")
                 }
-                
+
                 searchJob?.cancel()
                 searchJob = serviceScope.launch {
                     kotlinx.coroutines.delay(450) // Debounce for 450ms
-                    
+
                     if (allTexts.isNotEmpty()) {
                         val combinedForCheck = allTexts.joinToString("\n")
-                        
+
                         if (combinedForCheck != lastAnalyzedText || System.currentTimeMillis() - lastAnalysisTime > 3000) {
                             lastAnalyzedText = combinedForCheck
                             lastAnalysisTime = System.currentTimeMillis()
-                            
+
+                            if (prefs.isCurrencySyncEnabled) {
+                                runCatching { currencyConverter.syncRate(prefs, force = false) }
+                            }
+
                             val extractedStrings = com.mmdparsadev.engine.TextExtractionEngine.extractConvertibleValues(allTexts)
-                            
+
                             if (extractedStrings.isEmpty()) {
                                 return@launch
                             }
-                            
+
                             val textToRect = nodeBounds.associate { it.first to it.second }
                             val foundConversions = mutableListOf<Triple<String, String, android.graphics.Rect>>()
                             val rate = prefs.lastUsdRate
                             val eurRate = prefs.lastEurRate
                             val prefDisplay = prefs.preferredCurrencyDisplay
                             val enabledCategories = prefs.enabledUnitCategories.split(",").map { it.trim().lowercase() }.toSet()
-                            
+
                             val seenNormalized = mutableSetOf<String>()
                             for (t in extractedStrings) {
                                 var converted = t
@@ -191,14 +204,14 @@ class FlashCAccessibilityService : AccessibilityService() {
                                     }
                                 }
                             }
-                            
+
                             if (foundConversions.isNotEmpty()) {
                                 val conversionsList = foundConversions.map { it.first to it.second }
                                 val firstRect = foundConversions.first().third
-                                
+
                                 android.util.Log.d("FlashC", "Final conversion candidates: ${conversionsList.joinToString(", ") { "${it.first} -> ${it.second}" }}")
                                 val thisRenderHash = conversionsList.joinToString("||") { "${it.first}->${it.second}" }
-                                
+
                                 if (thisRenderHash != lastRenderedConversions) {
                                     lastRenderedConversions = thisRenderHash
                                     android.util.Log.d("FlashC", "Found ${conversionsList.size} conversions. Showing overlay.")

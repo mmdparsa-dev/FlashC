@@ -125,7 +125,6 @@
     <string name="disabled_click_to_enable">Disabled • Click to enable</string>
     <string name="last_updated_prefix">Last updated: %s</string>
     <string name="never_updated">Never</string>
-    <string name="app_info_footer">FlashC Conversion Suite v1.0.0\nProtected by Android Sandbox Architecture</string>
     <string name="share_title">Convert Shared File</string>
     <string name="share_file_name_label">File Name</string>
     <string name="share_file_type_label">File Type</string>

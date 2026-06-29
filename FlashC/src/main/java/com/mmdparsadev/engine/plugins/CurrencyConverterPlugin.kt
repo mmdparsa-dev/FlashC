@@ -64,18 +64,22 @@ class CurrencyConverterPlugin : ConversionPlugin {
         }
     }
 
-    suspend fun syncRate(prefs: AppPreferences) {
+    companion object {
+        private var lastAttemptTime = 0L
+    }
+
+    suspend fun syncRate(prefs: AppPreferences, force: Boolean = false) {
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
-            if (now - prefs.lastRateFetchTime < 3_600_000L) return@withContext
+            if (!force && now - prefs.lastRateFetchTime < 3_600_000L) return@withContext
+            if (!force && now - lastAttemptTime < 300_000L) return@withContext
+            lastAttemptTime = now
 
             try {
                 val latest = fetchRatesFromApi() ?: fetchRatesFromHtml()
-                
+
                 if (latest == null) {
                     android.util.Log.e("CurrencyConverter", "Failed to fetch rates from both API and HTML source")
-                    // Update fetch time to avoid hammering the server, but maybe retry sooner
-                    prefs.lastRateFetchTime = now - 3_000_000L // Retry in 5 minutes
                     return@withContext
                 }
 
@@ -88,7 +92,6 @@ class CurrencyConverterPlugin : ConversionPlugin {
                 prefs.lastRateFetchTime = now
             } catch (e: Exception) {
                 android.util.Log.e("CurrencyConverter", "Error syncing rates: ${e.message}", e)
-                prefs.lastRateFetchTime = now - 3_000_000L // Retry in 5 minutes
             }
         }
     }
@@ -133,7 +136,7 @@ class CurrencyConverterPlugin : ConversionPlugin {
         val numRegex = """([0-9]+(?:[\.,][0-9]+)?)"""
         val spaceRegex = """[\s\u200C]*"""
         val regex = Regex("""$numRegex$spaceRegex(تومان|Tomans?|ریال|Rials?|\$|USD|€|EUR|دلار|یورو)""", RegexOption.IGNORE_CASE)
-        
+
         return try {
             regex.replace(result) { match ->
                 try {
@@ -152,7 +155,7 @@ class CurrencyConverterPlugin : ConversionPlugin {
 
                     val convertedUsd = if (usdRate != 0f) tomansValue / usdRate else 0.0
                     val convertedEur = if (eurRate != 0f) tomansValue / eurRate else 0.0
-                    
+
                     // Format result based on preferred display
                     when (prefDisplay.lowercase()) {
                         "usd" -> String.format("%.2f USD", convertedUsd)
