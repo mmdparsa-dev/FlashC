@@ -58,7 +58,7 @@ First build:
 Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/FlashC.git
+git clone https://github.com/mmdparsa-dev/FlashC
 ```
 
 Open the project in Android Studio and build:
