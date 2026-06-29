@@ -16,16 +16,10 @@ Built using **Kotlin** and **Jetpack Compose**, FlashC focuses on providing a fa
 
 ## 🚀 Version
 
-Current version:
-
-```
-1.0.0 Beta
-```
-
 First build:
 
 ```
-29/06/26 - 16:23
+29/06/26 - 16:23 | 1.0.0 Beta
 ```
 
 ---
@@ -87,7 +81,7 @@ Open the project in Android Studio and build:
 
 ## 📄 License
 
-License information will be added later.
+License is MIT 
 
 ---
 
