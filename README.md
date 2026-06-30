@@ -16,16 +16,10 @@ Built using **Kotlin** and **Jetpack Compose**, FlashC focuses on providing a fa
 
 ## 🚀 Version
 
-Current version:
-
-```
-1.0.0 Beta
-```
-
 First build:
 
 ```
-29/06/26 - 16:23
+29/06/26 - 16:23 | 1.0.0 Beta
 ```
 
 ---
@@ -64,7 +58,7 @@ First build:
 Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/FlashC.git
+git clone https://github.com/mmdparsa-dev/FlashC
 ```
 
 Open the project in Android Studio and build:
@@ -87,12 +81,12 @@ Open the project in Android Studio and build:
 
 ## 📄 License
 
-License information will be added later.
+License is MIT 
 
 ---
 
 ## 💙 Created by
 
-**MMDParsaDev**
+**mmdparsa**
 
 ⚡ FlashC — Fast. Clean. Modern.
