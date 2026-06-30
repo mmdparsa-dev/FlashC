@@ -37,12 +37,6 @@ class FlashCAccessibilityService : AccessibilityService() {
         prefs = AppPreferences(applicationContext)
         overlayController = OverlayController(applicationContext)
 
-        if (prefs.isCurrencySyncEnabled) {
-            serviceScope.launch {
-                runCatching { currencyConverter.syncRate(prefs, force = false) }
-            }
-        }
-
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.addPrimaryClipChangedListener {
             if (prefs.isClipboardParseEnabled) {
@@ -65,20 +59,22 @@ class FlashCAccessibilityService : AccessibilityService() {
         lastAnalysisTime = System.currentTimeMillis()
 
         serviceScope.launch {
-            if (prefs.isCurrencySyncEnabled) {
-                runCatching { currencyConverter.syncRate(prefs, force = false) }
-            }
             val rate = prefs.lastUsdRate
             val eurRate = prefs.lastEurRate
-            val prefDisplay = prefs.preferredCurrencyDisplay
             var converted = if (prefs.isCurrencyEnabled) {
-                currencyConverter.convertCurrencyInText(trimmed, rate, eurRate, prefDisplay)
+                currencyConverter.convertCurrencyInText(
+                    trimmed,
+                    rate,
+                    eurRate,
+                    prefs.showUsdConversion,
+                    prefs.showEurConversion
+                )
             } else {
                 trimmed
             }
             val enabledCategories = prefs.enabledUnitCategories.split(",").map { it.trim().lowercase() }.toSet()
             converted = if (prefs.isUnitsEnabled) {
-                unitConverter.parseAndConvertText(converted, enabledCategories)
+                unitConverter.parseAndConvertText(converted, enabledCategories, prefs.appLanguage)
             } else {
                 converted
             }
@@ -116,6 +112,13 @@ class FlashCAccessibilityService : AccessibilityService() {
         if (event == null) {
             return
         }
+        
+        // Skip detection for ignored apps or FlashC itself
+        val currentPackage = event.packageName?.toString()
+        if (currentPackage != null && (currentPackage == packageName || prefs.ignoredApps.contains(currentPackage))) {
+            return
+        }
+
         if (!prefs.isOverlayEnabled) {
             return
         }
@@ -184,17 +187,22 @@ class FlashCAccessibilityService : AccessibilityService() {
                             val foundConversions = mutableListOf<Triple<String, String, android.graphics.Rect>>()
                             val rate = prefs.lastUsdRate
                             val eurRate = prefs.lastEurRate
-                            val prefDisplay = prefs.preferredCurrencyDisplay
                             val enabledCategories = prefs.enabledUnitCategories.split(",").map { it.trim().lowercase() }.toSet()
 
                             val seenNormalized = mutableSetOf<String>()
                             for (t in extractedStrings) {
                                 var converted = t
                                 if (prefs.isCurrencyEnabled) {
-                                    converted = currencyConverter.convertCurrencyInText(converted, rate, eurRate, prefDisplay)
+                                    converted = currencyConverter.convertCurrencyInText(
+                                        converted,
+                                        rate,
+                                        eurRate,
+                                        prefs.showUsdConversion,
+                                        prefs.showEurConversion
+                                    )
                                 }
                                 if (prefs.isUnitsEnabled) {
-                                    converted = unitConverter.parseAndConvertText(converted, enabledCategories)
+                                    converted = unitConverter.parseAndConvertText(converted, enabledCategories, prefs.appLanguage)
                                 }
                                 if (converted != t) {
                                     val norm = getNormalizedText(t)

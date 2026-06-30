@@ -19,12 +19,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +51,10 @@ fun OnboardingScreen(
     onLanguageChanged: (String) -> Unit
 ) {
     var currentStep by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
+    
+    // Animation states for content entrance
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -57,9 +64,15 @@ fun OnboardingScreen(
         androidx.compose.animation.AnimatedContent(
             targetState = currentStep,
             transitionSpec = {
-                (androidx.compose.animation.slideInHorizontally { width -> width } + androidx.compose.animation.fadeIn()).togetherWith(
-                    androidx.compose.animation.slideOutHorizontally { width -> -width } + androidx.compose.animation.fadeOut()
-                )
+                if (targetState > initialState) {
+                    (slideInHorizontally { width -> width } + fadeIn(tween(400))).togetherWith(
+                        slideOutHorizontally { width -> -width } + fadeOut(tween(400))
+                    )
+                } else {
+                    (slideInHorizontally { width -> -width } + fadeIn(tween(400))).togetherWith(
+                        slideOutHorizontally { width -> width } + fadeOut(tween(400))
+                    )
+                }.using(SizeTransform(clip = false))
             },
             label = "OnboardingTransition"
         ) { step ->
@@ -72,12 +85,17 @@ fun OnboardingScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(64.dp)
-                    )
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(800)) + scaleIn(initialScale = 0.8f, animationSpec = tween(800))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(80.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(
                         text = stringResource(R.string.select_language),
@@ -85,43 +103,55 @@ fun OnboardingScreen(
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(48.dp))
                     
-                    Button(
-                        onClick = {
-                            prefs.appLanguage = "en"
-                            onLanguageChanged("en")
-                            currentStep = 1
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (language == "en") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (language == "en") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                        )
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(tween(600, delayMillis = 200))
                     ) {
-                        Text(stringResource(R.string.lang_english), style = MaterialTheme.typography.titleMedium)
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Button(
-                        onClick = {
-                            prefs.appLanguage = "fa"
-                            onLanguageChanged("fa")
-                            currentStep = 1
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (language == "fa") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (language == "fa") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                        )
-                    ) {
-                        Text(stringResource(R.string.lang_persian), style = MaterialTheme.typography.titleMedium)
+                        Column {
+                            Button(
+                                onClick = {
+                                    prefs.appLanguage = "en"
+                                    onLanguageChanged("en")
+                                    currentStep = 1
+                                },
+                                modifier = Modifier.fillMaxWidth().height(64.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (language == "en") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (language == "en") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                            ) {
+                                Text(stringResource(R.string.lang_english), style = MaterialTheme.typography.titleMedium)
+                            }
+                            
+                            Spacer(modifier = Modifier.height(20.dp))
+                            
+                            Button(
+                                onClick = {
+                                    prefs.appLanguage = "fa"
+                                    onLanguageChanged("fa")
+                                    currentStep = 1
+                                },
+                                modifier = Modifier.fillMaxWidth().height(64.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (language == "fa") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (language == "fa") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                            ) {
+                                Text(stringResource(R.string.lang_persian), style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
                     }
                 }
             } else {
+                val contentVisible = remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { contentVisible.value = true }
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -131,107 +161,96 @@ fun OnboardingScreen(
                 ) {
                     item {
                         Spacer(modifier = Modifier.height(40.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(80.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(20.dp)),
-                            contentAlignment = Alignment.Center
+                        AnimatedVisibility(
+                            visible = contentVisible.value,
+                            enter = expandVertically() + fadeIn(tween(600))
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(48.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(28.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Bolt,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(56.dp)
+                                )
+                            }
                         }
                     }
 
                     item {
-                        Text(
-                            text = stringResource(R.string.welcome_title),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.welcome_subtitle),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
+                        AnimatedVisibility(
+                            visible = contentVisible.value,
+                            enter = slideInVertically(initialOffsetY = { 20 }) + fadeIn(tween(600, delayMillis = 100))
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = stringResource(R.string.welcome_title),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = stringResource(R.string.welcome_subtitle),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
 
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        AnimatedVisibility(
+                            visible = contentVisible.value,
+                            enter = slideInVertically(initialOffsetY = { 30 }) + fadeIn(tween(600, delayMillis = 200))
                         ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text(
-                                    text = stringResource(R.string.permissions_status),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-
-                                // Draw Over Apps permission item
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(stringResource(R.string.draw_over_apps), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text(stringResource(R.string.draw_over_apps_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    Button(
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(24.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.permissions_status),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    // ... Row contents remain largely same but with slight padding improvements
+                                    PermissionItem(
+                                        title = stringResource(R.string.draw_over_apps),
+                                        description = stringResource(R.string.draw_over_apps_desc),
+                                        isGranted = isOverlayGranted,
                                         onClick = {
                                             if (!isOverlayGranted) {
                                                 val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
                                                 context.startActivity(intent)
                                             }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isOverlayGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                                            contentColor = if (isOverlayGranted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary
-                                        ),
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    ) {
-                                        Text(if (isOverlayGranted) stringResource(R.string.granted) else stringResource(R.string.missing), fontSize = 11.sp)
-                                    }
-                                }
+                                        }
+                                    )
 
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                                // Accessibility permission item
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(stringResource(R.string.accessibility_service), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text(stringResource(R.string.accessibility_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    Button(
+                                    PermissionItem(
+                                        title = stringResource(R.string.accessibility_service),
+                                        description = stringResource(R.string.accessibility_desc),
+                                        isGranted = isAccessibilityGranted,
                                         onClick = {
                                             if (!isAccessibilityGranted) {
                                                 val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                                                 context.startActivity(intent)
                                             }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isAccessibilityGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                                            contentColor = if (isAccessibilityGranted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary
-                                        ),
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    ) {
-                                        Text(if (isAccessibilityGranted) stringResource(R.string.granted) else stringResource(R.string.missing), fontSize = 11.sp)
-                                    }
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -239,21 +258,52 @@ fun OnboardingScreen(
 
                     item {
                         Spacer(modifier = Modifier.height(20.dp))
-                        Button(
-                            onClick = {
-                                prefs.isOnboardingCompleted = true
-                                onComplete()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            shape = RoundedCornerShape(16.dp)
+                        AnimatedVisibility(
+                            visible = contentVisible.value,
+                            enter = slideInVertically(initialOffsetY = { 40 }) + fadeIn(tween(600, delayMillis = 300))
                         ) {
-                            Text(stringResource(R.string.get_started), style = MaterialTheme.typography.titleMedium)
+                            Button(
+                                onClick = {
+                                    prefs.isOnboardingCompleted = true
+                                    onComplete()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(64.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                            ) {
+                                Text(stringResource(R.string.get_started), style = MaterialTheme.typography.titleMedium)
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun PermissionItem(title: String, description: String, isGranted: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Button(
+            onClick = onClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                contentColor = if (isGranted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary
+            ),
+            modifier = Modifier.padding(start = 12.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(if (isGranted) stringResource(R.string.granted) else stringResource(R.string.missing), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -347,9 +397,19 @@ fun MainScreen(viewModel: MainViewModel) {
             // Re-parse the shared text using the ViewModel logic
             val convertedText = remember(sharedText) {
                 // Simplified parsing for dialog based on ViewModel logic
-                val parsedCurrency = com.mmdparsadev.engine.plugins.CurrencyConverterPlugin().convertCurrencyInText(sharedText, rate, eurRate, prefDisplay)
+                val rate = prefs.lastUsdRate
+                val eurRate = prefs.lastEurRate
                 val enabledCategories = prefs.enabledUnitCategories.split(",").map { it.trim().lowercase() }.toSet()
-                com.mmdparsadev.engine.plugins.UnitConverterPlugin().parseAndConvertText(parsedCurrency, enabledCategories)
+                
+                var result = com.mmdparsadev.engine.plugins.CurrencyConverterPlugin().convertCurrencyInText(
+                    sharedText,
+                    rate,
+                    eurRate,
+                    prefs.showUsdConversion,
+                    prefs.showEurConversion
+                )
+                result = com.mmdparsadev.engine.plugins.UnitConverterPlugin().parseAndConvertText(result, enabledCategories, prefs.appLanguage)
+                result
             }
 
             AlertDialog(
@@ -913,6 +973,109 @@ fun FileConversionContent(viewModel: MainViewModel) {
     // Real implementation pending
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun IgnoreAppsScreen(prefs: AppPreferences, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var searchQuery by remember { mutableStateOf("") }
+    
+    val allApps = remember {
+        val pm = context.packageManager
+        val apps = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA)
+            .filter { (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 || it.packageName == context.packageName }
+            .map { app ->
+                Triple(
+                    app.loadLabel(pm).toString(),
+                    app.packageName,
+                    app
+                )
+            }.sortedBy { it.first.lowercase() }
+        apps
+    }
+    
+    val filteredApps = remember(searchQuery) {
+        if (searchQuery.isBlank()) allApps
+        else allApps.filter { it.first.contains(searchQuery, ignoreCase = true) || it.second.contains(searchQuery, ignoreCase = true) }
+    }
+    
+    var ignoredApps by remember { mutableStateOf(prefs.ignoredApps) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.ignored_apps_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.done))
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                placeholder = { Text(stringResource(R.string.search_apps)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(filteredApps) { (label, packageName, appInfo) ->
+                    val isIgnored = ignoredApps.contains(packageName)
+                    ListItem(
+                        headlineContent = { Text(label, fontWeight = FontWeight.SemiBold) },
+                        supportingContent = { Text(packageName, style = MaterialTheme.typography.bodySmall) },
+                        leadingContent = {
+                            val icon = remember { appInfo.loadIcon(context.packageManager) }
+                            androidx.compose.foundation.Image(
+                                bitmap = icon.toBitmap().asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isIgnored,
+                                onCheckedChange = { checked ->
+                                    val newList = ignoredApps.toMutableSet()
+                                    if (checked) newList.add(packageName) else newList.remove(packageName)
+                                    ignoredApps = newList
+                                    prefs.ignoredApps = newList
+                                }
+                            )
+                        },
+                        modifier = Modifier.clickable {
+                            val checked = !isIgnored
+                            val newList = ignoredApps.toMutableSet()
+                            if (checked) newList.add(packageName) else newList.remove(packageName)
+                            ignoredApps = newList
+                            prefs.ignoredApps = newList
+                        }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                }
+                
+                if (filteredApps.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text(stringResource(R.string.no_apps_found), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun HistoryTab(viewModel: MainViewModel) {
     val historyList by viewModel.history.collectAsState(initial = emptyList())
@@ -1306,38 +1469,15 @@ fun SettingsTab(
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Toggle 3
+                    // Toggle 3: Currency
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = stringResource(R.string.live_currency_sync), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Text(text = stringResource(R.string.live_currency_sync_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
-                        }
-                        Switch(
-                            checked = currencySyncEnabled,
-                            onCheckedChange = {
-                                currencySyncEnabled = it
-                                prefs.isCurrencySyncEnabled = it
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Currency Detection Toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = stringResource(R.string.currency_detection_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Text(text = stringResource(R.string.currency_detection_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                            Text(text = stringResource(R.string.category_currency), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text(text = stringResource(R.string.category_currency_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         }
                         Switch(
                             checked = currencyDetectionEnabled,
@@ -1348,25 +1488,141 @@ fun SettingsTab(
                         )
                     }
 
+                    if (currencyDetectionEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // USD Toggle
+                        var showUsd by remember { mutableStateOf(prefs.showUsdConversion) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = stringResource(R.string.show_usd_conversion), style = MaterialTheme.typography.bodyMedium)
+                            Switch(
+                                checked = showUsd,
+                                onCheckedChange = {
+                                    showUsd = it
+                                    prefs.showUsdConversion = it
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // EUR Toggle
+                        var showEur by remember { mutableStateOf(prefs.showEurConversion) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = stringResource(R.string.show_eur_conversion), style = MaterialTheme.typography.bodyMedium)
+                            Switch(
+                                checked = showEur,
+                                onCheckedChange = {
+                                    showEur = it
+                                    prefs.showEurConversion = it
+                                }
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Units Detection Toggle
+                    // Toggle 4: Units
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = stringResource(R.string.unit_detection_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Text(text = stringResource(R.string.unit_detection_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                            Text(text = stringResource(R.string.category_units), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text(text = stringResource(R.string.category_units_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         }
                         Switch(
                             checked = unitDetectionEnabled,
                             onCheckedChange = {
                                 unitDetectionEnabled = it
                                 prefs.isUnitsEnabled = it
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Ignore Apps (Excluded Apps)
+                    var showIgnoreAppsScreen by remember { mutableStateOf(false) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { showIgnoreAppsScreen = true },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = stringResource(R.string.ignored_apps_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text(text = stringResource(R.string.ignored_apps_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        }
+                        Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    
+                    if (showIgnoreAppsScreen) {
+                        androidx.compose.ui.window.Dialog(
+                            onDismissRequest = { showIgnoreAppsScreen = false },
+                            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+                        ) {
+                            IgnoreAppsScreen(prefs = prefs, onDismiss = { showIgnoreAppsScreen = false })
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Currency Preferences Section
+                    Text(
+                        text = stringResource(R.string.currency_preferences),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    var showUsd by remember { mutableStateOf(prefs.showUsdConversion) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = stringResource(R.string.show_usd_conversion), style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = showUsd,
+                            onCheckedChange = {
+                                showUsd = it
+                                prefs.showUsdConversion = it
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    var showEur by remember { mutableStateOf(prefs.showEurConversion) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = stringResource(R.string.show_eur_conversion), style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = showEur,
+                            onCheckedChange = {
+                                showEur = it
+                                prefs.showEurConversion = it
                             }
                         )
                     }

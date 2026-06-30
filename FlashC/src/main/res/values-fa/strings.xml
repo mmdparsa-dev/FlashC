@@ -146,4 +146,13 @@
     <string name="file_size_label">اندازه فایل</string>
     <string name="conversion_success">تبدیل با موفقیت انجام شد</string>
     <string name="no_app_found">برنامه‌ای برای باز کردن این فایل یافت نشد.</string>
+    <string name="ignored_apps_title">برنامه‌های مستثنی شده</string>
+    <string name="ignored_apps_desc">برنامه‌هایی را انتخاب کنید که FlashC نباید در آن‌ها متن را شناسایی کند.</string>
+    <string name="search_apps">جستجوی برنامه‌ها...</string>
+    <string name="no_apps_found">برنامه‌ای یافت نشد</string>
+    <string name="done">انجام شد</string>
+    <string name="smart_popup">پنجره هوشمند تبدیل</string>
+    <string name="currency_preferences">تنظیمات ارز</string>
+    <string name="show_usd_conversion">نمایش تبدیل به دلار (USD)</string>
+    <string name="show_eur_conversion">نمایش تبدیل به یورو (EUR)</string>
 </resources>

@@ -9,13 +9,12 @@ import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
 class CurrencyConverterPlugin : ConversionPlugin {
 
     override val metadata = PluginMetadata(
         id = "currency_converter",
         name = "Currency Converter",
-        description = "Converts between Iranian Rials, Tomans, USD, and EUR with real-time exchange rates.",
+        description = "Converts between Iranian Rials, Tomans, USD, and EUR offline.",
         category = "Currency",
         supportedInputTypes = listOf("text/plain", "txt", "text/*"),
         supportedOutputTypes = listOf("text/plain", "txt")
@@ -53,8 +52,9 @@ class CurrencyConverterPlugin : ConversionPlugin {
             val convertedText = convertCurrencyInText(
                 input = text,
                 usdRateInTomans = prefs.lastUsdRate.takeIf { it > 0f } ?: 70000f,
-                eurRateInTomans = prefs.lastEurRate.takeIf { it > 0f } ?: ( (prefs.lastUsdRate.takeIf { it > 0f } ?: 70000f) * 1.09f),
-                prefDisplay = prefs.preferredCurrencyDisplay
+                eurRateInTomans = prefs.lastEurRate.takeIf { it > 0f } ?: 76000f,
+                showUsd = prefs.showUsdConversion,
+                showEur = prefs.showEurConversion
             )
 
             outputProvider()?.use { it.write(convertedText.toByteArray()) }
@@ -127,49 +127,93 @@ class CurrencyConverterPlugin : ConversionPlugin {
         return RateSnapshot(find(listOf("price_dollar", "usd")), find(listOf("price_eur", "eur", "euro")))
     }
 
-    fun convertCurrencyInText(input: String, usdRateInTomans: Float, eurRateInTomans: Float, prefDisplay: String): String {
-        var result = normalizeNumerals(input)
+    fun convertCurrencyInText(
+        input: String,
+        usdRateInTomans: Float,
+        eurRateInTomans: Float,
+        showUsd: Boolean = false,
+        showEur: Boolean = false
+    ): String {
         val usdRate = usdRateInTomans.takeIf { it > 0f } ?: 70000f
-        val eurRate = eurRateInTomans.takeIf { it > 0f } ?: (usdRate * 1.09f)
+        val eurRate = eurRateInTomans.takeIf { it > 0f } ?: 76000f
 
-        // Regex to match numbers with currency units (mandatory)
-        val numRegex = """([0-9]+(?:[\.,][0-9]+)?)"""
+        val numRegex = """([0-9۰-۹]+(?:[\.,][0-9۰-۹]+)?)"""
         val spaceRegex = """[\s\u200C]*"""
         val regex = Regex("""$numRegex$spaceRegex(تومان|Tomans?|ریال|Rials?|\$|USD|€|EUR|دلار|یورو)""", RegexOption.IGNORE_CASE)
 
         return try {
-            regex.replace(result) { match ->
+            regex.replace(input) { match ->
                 try {
-                    val numberStr = match.groupValues[1].replace(",", "").replace(".", "")
-                    val value = numberStr.toDoubleOrNull() ?: return@replace match.value
+                    val originalText = match.value
+                    val originalNumberStr = match.groupValues[1]
                     val unit = match.groupValues[2]
-                    if (unit.isNullOrBlank()) return@replace match.value
 
-                    val tomansValue = when {
-                        unit.contains("تومان", true) || unit.contains("Toman", true) -> value
-                        unit.contains("ریال", true) || unit.contains("Rial", true) -> value / 10.0
-                        unit.contains("$") || unit.contains("USD", true) || unit.contains("دلار", true) -> value * usdRate
-                        unit.contains("€") || unit.contains("EUR", true) || unit.contains("یورو", true) -> value * eurRate
-                        else -> return@replace match.value
+                    // Detect script from original input to decide output script
+                    val isPersianScript = originalText.any { it in '۰'..'۹' || it == 'ت' || it == 'ر' || it == 'د' || it == 'ی' }
+                    
+                    val normalizedNumberStr = normalizeNumerals(originalNumberStr).replace(",", "").replace(".", "")
+                    val value = normalizedNumberStr.toDoubleOrNull() ?: return@replace originalText
+
+                    var tomansValue = 0.0
+                    var detectedType = "" // toman, rial, usd, eur
+
+                    when {
+                        unit.contains("تومان", true) || unit.contains("Toman", true) -> {
+                            tomansValue = value
+                            detectedType = "toman"
+                        }
+                        unit.contains("ریال", true) || unit.contains("Rial", true) -> {
+                            tomansValue = value / 10.0
+                            detectedType = "rial"
+                        }
+                        unit.contains("$") || unit.contains("USD", true) || unit.contains("دلار", true) -> {
+                            tomansValue = value * usdRate
+                            detectedType = "usd"
+                        }
+                        unit.contains("€") || unit.contains("EUR", true) || unit.contains("یورو", true) -> {
+                            tomansValue = value * eurRate
+                            detectedType = "eur"
+                        }
+                        else -> return@replace originalText
                     }
 
-                    val convertedUsd = if (usdRate != 0f) tomansValue / usdRate else 0.0
-                    val convertedEur = if (eurRate != 0f) tomansValue / eurRate else 0.0
+                    val results = mutableListOf<String>()
 
-                    // Format result based on preferred display
-                    when (prefDisplay.lowercase()) {
-                        "usd" -> String.format("%.2f USD", convertedUsd)
-                        "eur" -> String.format("%.2f EUR", convertedEur)
-                        else -> String.format("%,.0f Tomans", tomansValue)
+                    // 1. Toman / Rial Relationship
+                    if (detectedType == "toman") {
+                        val rialVal = String.format("%,.0f", tomansValue * 10)
+                        results.add("≈ ${formatNumerals(rialVal, isPersianScript)}${if (isPersianScript) " ریال" else " Rial"}")
+                    } else if (detectedType == "rial") {
+                        val tomanVal = String.format("%,.0f", tomansValue)
+                        results.add("≈ ${formatNumerals(tomanVal, isPersianScript)}${if (isPersianScript) " تومان" else " Toman"}")
+                    } else {
+                        // If USD/EUR, show Toman AND Rial
+                        val tomanVal = String.format("%,.0f", tomansValue)
+                        val rialVal = String.format("%,.0f", tomansValue * 10)
+                        results.add("≈ ${formatNumerals(tomanVal, isPersianScript)}${if (isPersianScript) " تومان" else " Toman"}")
+                        results.add("≈ ${formatNumerals(rialVal, isPersianScript)}${if (isPersianScript) " ریال" else " Rial"}")
                     }
+
+                    // 2. USD Conversion
+                    if (showUsd && detectedType != "usd") {
+                        val usdVal = String.format("%.2f", tomansValue / usdRate)
+                        results.add("≈ ${formatNumerals(usdVal, isPersianScript)}${if (isPersianScript) " دلار" else " USD"}")
+                    }
+
+                    // 3. EUR Conversion
+                    if (showEur && detectedType != "eur") {
+                        val eurVal = String.format("%.2f", tomansValue / eurRate)
+                        results.add("≈ ${formatNumerals(eurVal, isPersianScript)}${if (isPersianScript) " یورو" else " EUR"}")
+                    }
+
+                    // Grouped result: Original input \n ≈ Conversion 1 \n ≈ Conversion 2...
+                    "${originalText}\n${results.joinToString("\n")}"
                 } catch (e: Exception) {
-                    android.util.Log.e("CurrencyConverter", "Error parsing match: ${match.value}", e)
                     match.value
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("CurrencyConverter", "Error replacing currency in text", e)
-            result
+            input
         }
     }
 }

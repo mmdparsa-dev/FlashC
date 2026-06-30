@@ -85,36 +85,50 @@ class ShareConvertActivity : ComponentActivity() {
         val type = intent?.type
 
         val uris = mutableListOf<Uri>()
+        var sharedText: String? = null
 
         if (Intent.ACTION_SEND == action && type != null) {
-            val uri = androidx.core.content.IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
-            if (uri != null) {
-                uris.add(uri)
+            if (type == "text/plain") {
+                sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+            } else {
+                val uri = androidx.core.content.IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                if (uri != null) uris.add(uri)
             }
         } else if (Intent.ACTION_SEND_MULTIPLE == action && type != null) {
             val list = androidx.core.content.IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
-            if (list != null) {
-                uris.addAll(list)
+            if (list != null) uris.addAll(list)
+        } else if (Intent.ACTION_PROCESS_TEXT == action) {
+            sharedText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+            } else {
+                null
             }
         }
 
-        if (uris.isEmpty()) {
-            Toast.makeText(this, "No files received for conversion.", Toast.LENGTH_SHORT).show()
+        if (uris.isEmpty() && sharedText == null) {
+            Toast.makeText(this, "No content received for conversion.", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
 
         setContent {
             MyApplicationTheme {
-                ShareConvertPopupScreen(
-                    uris = uris,
-                    onDismiss = { finish() },
-                    onConvert = { targetFormat, onProgress, onComplete, onError ->
-                        lifecycleScope.launch {
-                            performConversions(uris, targetFormat, onProgress, onComplete, onError)
+                if (sharedText != null) {
+                    ShareTextPopupScreen(
+                        text = sharedText,
+                        onDismiss = { finish() }
+                    )
+                } else {
+                    ShareConvertPopupScreen(
+                        uris = uris,
+                        onDismiss = { finish() },
+                        onConvert = { targetFormat, onProgress, onComplete, onError ->
+                            lifecycleScope.launch {
+                                performConversions(uris, targetFormat, onProgress, onComplete, onError)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }
@@ -394,6 +408,115 @@ fun openConvertedFile(context: Context, info: ConvertedFileInfo) {
         context.startActivity(intent)
     } catch (e: Exception) {
         Toast.makeText(context, context.getString(R.string.no_app_found), Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Composable
+fun ShareTextPopupScreen(text: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { AppPreferences(context) }
+    
+    val convertedText = remember(text) {
+        val rate = prefs.lastUsdRate
+        val eurRate = prefs.lastEurRate
+        val enabledCategories = prefs.enabledUnitCategories.split(",").map { it.trim().lowercase() }.toSet()
+        
+        var result = com.mmdparsadev.engine.plugins.CurrencyConverterPlugin().convertCurrencyInText(
+            text,
+            rate,
+            eurRate,
+            prefs.showUsdConversion,
+            prefs.showEurConversion
+        )
+        result = com.mmdparsadev.engine.plugins.UnitConverterPlugin().parseAndConvertText(result, enabledCategories, prefs.appLanguage)
+        result
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable { onDismiss() },
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .clickable(enabled = false) {}
+                .systemBarsPadding(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = stringResource(R.string.smart_popup),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.1f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Text(
+                        text = convertedText,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.dismiss))
+                    }
+                    
+                    Button(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("FlashC Converted", convertedText)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, context.getString(R.string.results_copied), Toast.LENGTH_SHORT).show()
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1.5f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.copy))
+                    }
+                }
+            }
+        }
     }
 }
 

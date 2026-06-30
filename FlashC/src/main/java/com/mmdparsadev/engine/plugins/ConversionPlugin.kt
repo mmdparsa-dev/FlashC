@@ -32,6 +32,16 @@ interface ConversionPlugin {
         }.joinToString("")
     }
 
+    fun formatNumerals(input: String, toPersian: Boolean): String {
+        if (!toPersian) return input
+        val english = "0123456789"
+        val persian = "۰۱۲۳۴۵۶۷۸۹"
+        return input.map { char ->
+            val idx = english.indexOf(char)
+            if (idx != -1) persian[idx] else char
+        }.joinToString("")
+    }
+
     fun canHandle(inputType: String, outputType: String): Boolean {
         val inType = inputType.lowercase().trim()
         val outType = outputType.lowercase().trim()

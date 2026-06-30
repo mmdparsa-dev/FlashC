@@ -20,6 +20,9 @@ class AppPreferences(context: Context) {
         private const val KEY_ENABLED_UNIT_CATEGORIES = "enabled_unit_categories"
         private const val KEY_APP_LANGUAGE = "app_language"
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+        private const val KEY_IGNORED_APPS = "ignored_apps"
+        private const val KEY_SHOW_USD_CONVERSION = "show_usd_conversion"
+        private const val KEY_SHOW_EUR_CONVERSION = "show_eur_conversion"
     }
 
     var isOverlayEnabled: Boolean
@@ -77,4 +80,16 @@ class AppPreferences(context: Context) {
     var isOnboardingCompleted: Boolean
         get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
         set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, value).apply()
+
+    var ignoredApps: Set<String>
+        get() = prefs.getStringSet(KEY_IGNORED_APPS, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_IGNORED_APPS, value).apply()
+
+    var showUsdConversion: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_USD_CONVERSION, false)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_USD_CONVERSION, value).apply()
+
+    var showEurConversion: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_EUR_CONVERSION, false)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_EUR_CONVERSION, value).apply()
 }

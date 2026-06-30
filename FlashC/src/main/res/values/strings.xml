@@ -146,4 +146,13 @@
     <string name="file_size_label">File Size</string>
     <string name="conversion_success">Conversion Successful</string>
     <string name="no_app_found">No application found to open this file.</string>
+    <string name="ignored_apps_title">Excluded Apps</string>
+    <string name="ignored_apps_desc">Select apps where FlashC should not detect text or show overlays.</string>
+    <string name="search_apps">Search apps...</string>
+    <string name="no_apps_found">No apps found</string>
+    <string name="done">Done</string>
+    <string name="smart_popup">Smart Conversion Popup</string>
+    <string name="currency_preferences">Currency Preferences</string>
+    <string name="show_usd_conversion">Show USD conversion</string>
+    <string name="show_eur_conversion">Show EUR conversion</string>
 </resources>
