@@ -86,10 +86,10 @@ class AppPreferences(context: Context) {
         set(value) = prefs.edit().putStringSet(KEY_IGNORED_APPS, value).apply()
 
     var showUsdConversion: Boolean
-        get() = prefs.getBoolean(KEY_SHOW_USD_CONVERSION, false)
+        get() = prefs.getBoolean(KEY_SHOW_USD_CONVERSION, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_USD_CONVERSION, value).apply()
 
     var showEurConversion: Boolean
-        get() = prefs.getBoolean(KEY_SHOW_EUR_CONVERSION, false)
+        get() = prefs.getBoolean(KEY_SHOW_EUR_CONVERSION, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_EUR_CONVERSION, value).apply()
 }

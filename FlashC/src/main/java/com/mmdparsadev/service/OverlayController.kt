@@ -402,7 +402,7 @@ fun FloatingOverlayCardContent(
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 2
+                        maxLines = 10 // Increased to show all conversions
                     )
                 }
             }

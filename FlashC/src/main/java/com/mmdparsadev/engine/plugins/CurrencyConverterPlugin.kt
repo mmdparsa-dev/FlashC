@@ -137,9 +137,9 @@ class CurrencyConverterPlugin : ConversionPlugin {
         val usdRate = usdRateInTomans.takeIf { it > 0f } ?: 70000f
         val eurRate = eurRateInTomans.takeIf { it > 0f } ?: 76000f
 
-        val numRegex = """([0-9۰-۹]+(?:[\.,][0-9۰-۹]+)?)"""
+        val numRegex = """([0-9۰-۹][0-9۰-۹\.,،/\s\u200C]*)"""
         val spaceRegex = """[\s\u200C]*"""
-        val regex = Regex("""$numRegex$spaceRegex(تومان|Tomans?|ریال|Rials?|\$|USD|€|EUR|دلار|یورو)""", RegexOption.IGNORE_CASE)
+        val regex = Regex("""$numRegex$spaceRegex(تومان|Tomans?|ریال|Rials?|\$|USD|€|EUR|دلار|یورو)\b""", RegexOption.IGNORE_CASE)
 
         return try {
             regex.replace(input) { match ->
@@ -151,8 +151,52 @@ class CurrencyConverterPlugin : ConversionPlugin {
                     // Detect script from original input to decide output script
                     val isPersianScript = originalText.any { it in '۰'..'۹' || it == 'ت' || it == 'ر' || it == 'د' || it == 'ی' }
                     
-                    val normalizedNumberStr = normalizeNumerals(originalNumberStr).replace(",", "").replace(".", "")
-                    val value = normalizedNumberStr.toDoubleOrNull() ?: return@replace originalText
+                    val normalizedNumberStr = normalizeNumerals(originalNumberStr)
+                        .replace(" ", "")
+                        .replace("\u200C", "")
+                        .replace("،", ",") // Normalize Arabic comma to English comma
+                        .replace("/", ".") // Normalize Persian slash to dot
+
+                    // Improved number parsing:
+                    // If multiple separators of same type, they are group separators.
+                    val value = try {
+                        val dots = normalizedNumberStr.count { it == '.' }
+                        val commas = normalizedNumberStr.count { it == ',' }
+                        
+                        val cleanStr = when {
+                            dots > 1 && commas == 0 -> normalizedNumberStr.replace(".", "")
+                            commas > 1 && dots == 0 -> normalizedNumberStr.replace(",", "")
+                            dots == 1 && commas == 1 -> {
+                                // e.g. 1,000.50 or 1.000,50
+                                val dotIdx = normalizedNumberStr.indexOf('.')
+                                val commaIdx = normalizedNumberStr.indexOf(',')
+                                if (dotIdx < commaIdx) {
+                                    // 1.000,50 -> comma is decimal
+                                    normalizedNumberStr.replace(".", "").replace(",", ".")
+                                } else {
+                                    // 1,000.50 -> dot is decimal
+                                    normalizedNumberStr.replace(",", "")
+                                }
+                            }
+                            dots == 1 -> normalizedNumberStr
+                            commas == 1 -> {
+                                // In Iran, comma is usually group separator.
+                                // But if it's the only one and near the end, could it be decimal?
+                                // Let's check the distance from end.
+                                val idx = normalizedNumberStr.indexOf(',')
+                                if (normalizedNumberStr.length - idx <= 3) {
+                                    // treat as decimal e.g. 10,5
+                                    normalizedNumberStr.replace(",", ".")
+                                } else {
+                                    normalizedNumberStr.replace(",", "")
+                                }
+                            }
+                            else -> normalizedNumberStr
+                        }
+                        cleanStr.toDoubleOrNull() ?: return@replace originalText
+                    } catch (e: Exception) {
+                        return@replace originalText
+                    }
 
                     var tomansValue = 0.0
                     var detectedType = "" // toman, rial, usd, eur
@@ -179,18 +223,13 @@ class CurrencyConverterPlugin : ConversionPlugin {
 
                     val results = mutableListOf<String>()
 
-                    // 1. Toman / Rial Relationship
-                    if (detectedType == "toman") {
-                        val rialVal = String.format("%,.0f", tomansValue * 10)
-                        results.add("≈ ${formatNumerals(rialVal, isPersianScript)}${if (isPersianScript) " ریال" else " Rial"}")
-                    } else if (detectedType == "rial") {
+                    // Always show Toman and Rial
+                    if (detectedType != "toman") {
                         val tomanVal = String.format("%,.0f", tomansValue)
                         results.add("≈ ${formatNumerals(tomanVal, isPersianScript)}${if (isPersianScript) " تومان" else " Toman"}")
-                    } else {
-                        // If USD/EUR, show Toman AND Rial
-                        val tomanVal = String.format("%,.0f", tomansValue)
+                    }
+                    if (detectedType != "rial") {
                         val rialVal = String.format("%,.0f", tomansValue * 10)
-                        results.add("≈ ${formatNumerals(tomanVal, isPersianScript)}${if (isPersianScript) " تومان" else " Toman"}")
                         results.add("≈ ${formatNumerals(rialVal, isPersianScript)}${if (isPersianScript) " ریال" else " Rial"}")
                     }
 
@@ -207,6 +246,7 @@ class CurrencyConverterPlugin : ConversionPlugin {
                     }
 
                     // Grouped result: Original input \n ≈ Conversion 1 \n ≈ Conversion 2...
+                    if (results.isEmpty()) return@replace originalText
                     "${originalText}\n${results.joinToString("\n")}"
                 } catch (e: Exception) {
                     match.value

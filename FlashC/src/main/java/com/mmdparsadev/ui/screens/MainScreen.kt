@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.mmdparsadev.data.database.HistoryEntity
 import com.mmdparsadev.data.preferences.AppPreferences
 import com.mmdparsadev.R
@@ -308,10 +310,11 @@ fun PermissionItem(title: String, description: String, isGranted: Boolean, onCli
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+    @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val prefs = remember { AppPreferences(context) }
     
     var currentLanguage by remember { mutableStateOf(prefs.appLanguage) }
@@ -323,7 +326,7 @@ fun MainScreen(viewModel: MainViewModel) {
     
     // Simple helper to check accessibility service status
     fun isAccessibilityEnabled(context: Context): Boolean {
-        val expectedService = "${context.packageName}/com.example.service.FlashCAccessibilityService"
+        val expectedService = "${context.packageName}/com.mmdparsadev.service.FlashCAccessibilityService"
         val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
         return enabledServices.contains(expectedService)
     }
@@ -331,9 +334,17 @@ fun MainScreen(viewModel: MainViewModel) {
     var isAccessibilityGranted by remember { mutableStateOf(isAccessibilityEnabled(context)) }
 
     // Recheck permissions on resume/re-focus
-    LaunchedEffect(currentTab) {
-        isOverlayGranted = Settings.canDrawOverlays(context)
-        isAccessibilityGranted = isAccessibilityEnabled(context)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isOverlayGranted = Settings.canDrawOverlays(context)
+                isAccessibilityGranted = isAccessibilityEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     androidx.compose.animation.Crossfade(
@@ -1584,52 +1595,7 @@ fun SettingsTab(
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Currency Preferences Section
-                    Text(
-                        text = stringResource(R.string.currency_preferences),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
 
-                    var showUsd by remember { mutableStateOf(prefs.showUsdConversion) }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = stringResource(R.string.show_usd_conversion), style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = showUsd,
-                            onCheckedChange = {
-                                showUsd = it
-                                prefs.showUsdConversion = it
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    var showEur by remember { mutableStateOf(prefs.showEurConversion) }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = stringResource(R.string.show_eur_conversion), style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = showEur,
-                            onCheckedChange = {
-                                showEur = it
-                                prefs.showEurConversion = it
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Language Toggle Selector
                     Row(
